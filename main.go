@@ -67,5 +67,5 @@ func main() {
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
 
-	bot.ApplicationCommandDelete(bot.State.User.ID, "", createdCommand.ID)
+	bot.ApplicationCommandDelete(bot.State.User.ID, "943463729163558933", createdCommand.ID)
 }
