@@ -24,7 +24,7 @@ func InitDB(dbPath string) (*gorm.DB, error) {
 	}
 
 	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	if err != nil {
 		return nil, err

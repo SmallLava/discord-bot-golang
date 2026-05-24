@@ -269,20 +269,38 @@ func startScheduler(s *discordgo.Session, leaveService *service.LeaveService) {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
-	log.Println("Background scheduler started.")
+	log.Println("Background scheduler started (Optimized).")
+
+	// Cache schedules in memory and refresh every hour
+	var cachedSchedules []database.MeetingSchedule
+	var lastRefresh time.Time
+
+	refreshSchedules := func() {
+		scheds, err := leaveService.GetAllSchedules()
+		if err == nil {
+			cachedSchedules = scheds
+			lastRefresh = time.Now()
+			// Only log during refresh to keep console clean
+			log.Printf("Meeting schedules cached (%d entries).", len(cachedSchedules))
+		}
+	}
+
+	// Initial load
+	refreshSchedules()
 
 	for range ticker.C {
 		now := time.Now()
-		schedules, err := leaveService.GetAllSchedules()
-		if err != nil {
-			log.Printf("Error fetching schedules: %v", err)
-			continue
+
+		// Refresh cache once an hour
+		if now.Sub(lastRefresh) > time.Hour {
+			refreshSchedules()
 		}
 
 		currentTimeStr := now.Format("15:04")
-		for _, sched := range schedules {
+		for _, sched := range cachedSchedules {
 			if now.Weekday() == sched.DayOfWeek && currentTimeStr == sched.StartTime {
-				log.Printf("Meeting time detected: %s", currentTimeStr)
+				// ONLY read DB for leave records when it is EXACTLY meeting time
+				log.Printf("Meeting time detected: %s. Fetching leave records...", currentTimeStr)
 				
 				channelID, err := leaveService.GetAnnouncementChannel()
 				if err != nil || channelID == "" {
