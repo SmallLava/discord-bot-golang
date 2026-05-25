@@ -28,12 +28,13 @@ func (s *LeaveService) GetMembersOnLeave(date time.Time) ([]string, error) {
 	}
 
 	var userIDs []string
-	// Reset time to start of day for comparison
-	checkDate := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+	// Use UTC for consistent date comparison
+	checkDate := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
 
 	for _, leave := range allLeaves {
-		start := time.Date(leave.StartDate.Year(), leave.StartDate.Month(), leave.StartDate.Day(), 0, 0, 0, 0, leave.StartDate.Location())
-		end := time.Date(leave.EndDate.Year(), leave.EndDate.Month(), leave.EndDate.Day(), 23, 59, 59, 0, leave.EndDate.Location())
+		// Normalize leave range to start and end of their respective days in UTC
+		start := time.Date(leave.StartDate.Year(), leave.StartDate.Month(), leave.StartDate.Day(), 0, 0, 0, 0, time.UTC)
+		end := time.Date(leave.EndDate.Year(), leave.EndDate.Month(), leave.EndDate.Day(), 23, 59, 59, 0, time.UTC)
 
 		if (checkDate.After(start) || checkDate.Equal(start)) && (checkDate.Before(end) || checkDate.Equal(end)) {
 			userIDs = append(userIDs, leave.UserID)

@@ -290,29 +290,38 @@ func startScheduler(s *discordgo.Session, leaveService *service.LeaveService) {
 
 	for range ticker.C {
 		now := time.Now()
-
 		// Refresh cache once an hour
 		if now.Sub(lastRefresh) > time.Hour {
 			refreshSchedules()
 		}
 
 		currentTimeStr := now.Format("15:04")
+		// Log a heartbeat every 30 minutes to show scheduler is alive
+		if now.Minute() % 30 == 0 && now.Second() < 60 {
+			log.Printf("Scheduler heartbeat: current time %s, day %s", currentTimeStr, now.Weekday())
+		}
+
 		for _, sched := range cachedSchedules {
 			if now.Weekday() == sched.DayOfWeek && currentTimeStr == sched.StartTime {
-				// ONLY read DB for leave records when it is EXACTLY meeting time
-				log.Printf("Meeting time detected: %s. Fetching leave records...", currentTimeStr)
+				log.Printf("[MATCH] Meeting time detected: %s. Fetching data...", currentTimeStr)
 				
 				channelID, err := leaveService.GetAnnouncementChannel()
-				if err != nil || channelID == "" {
+				if err != nil {
+					log.Printf("Error getting announcement channel: %v", err)
+					continue
+				}
+				if channelID == "" {
 					log.Println("No announcement channel set, skipping notification.")
 					continue
 				}
+				log.Printf("Using announcement channel: %s", channelID)
 
 				userIDs, err := leaveService.GetMembersOnLeave(now)
 				if err != nil {
 					log.Printf("Error fetching members on leave: %v", err)
 					continue
 				}
+				log.Printf("Found %d members on leave for today.", len(userIDs))
 
 				if len(userIDs) > 0 {
 					mentions := []string{}
@@ -320,10 +329,15 @@ func startScheduler(s *discordgo.Session, leaveService *service.LeaveService) {
 						mentions = append(mentions, fmt.Sprintf("<@%s>", id))
 					}
 					message := fmt.Sprintf("@silent %s 以上成員請假", strings.Join(mentions, " "))
+					log.Printf("Sending message: %s", message)
 					_, err = s.ChannelMessageSend(channelID, message)
 					if err != nil {
 						log.Printf("Error sending announcement: %v", err)
+					} else {
+						log.Println("Announcement sent successfully.")
 					}
+				} else {
+					log.Println("No members on leave today, no message sent.")
 				}
 			}
 		}
